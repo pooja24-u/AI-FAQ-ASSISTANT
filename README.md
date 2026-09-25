@@ -1,137 +1,240 @@
-# AI FAQ Assistant API
+# gaxios
 
-The **AI FAQ Assistant API** is a robust RESTful backend application designed to enable users to create and manage FAQs while leveraging Google Gemini AI (`gemini-2.0-flash`) to generate answers to arbitrary user questions and automatically generate structured FAQ question-and-answer pairs.
+[![npm version](https://img.shields.io/npm/v/gaxios.svg)](https://www.npmjs.org/package/gaxios)
+[![codecov](https://codecov.io/gh/googleapis/gaxios/branch/master/graph/badge.svg)](https://codecov.io/gh/googleapis/gaxios)
+[![Code Style: Google](https://img.shields.io/badge/code%20style-google-blueviolet.svg)](https://github.com/google/gts)
 
-The project is built using **Node.js, Express.js, MongoDB (via Mongoose), JWT Authentication, bcrypt, and the official Google Gemini SDK (`@google/genai`)**. It follows the standard **MVC (Model-View-Controller) Architecture**.
+> An HTTP request client that provides an `axios` like interface over top of `node-fetch`.
 
----
+## Install
 
-## Features
-
-1.  **User Authentication**:
-    *   **User Registration**: Hashes passwords securely using `bcrypt` (10 rounds) and prevents duplicate email registration.
-    *   **User Login**: Authenticates credentials and issues secure JWT tokens.
-    *   **User Profile**: Private endpoint to retrieve details of the currently logged-in user.
-2.  **FAQ Management**:
-    *   **Full CRUD Operations**: Private endpoints for creating, updating, and deleting FAQs (with owner verification), and public endpoints for reading them.
-    *   **Category Constraints**: Valid categories are strictly validated: `Technology`, `Education`, `Health`, `Banking`, `General`.
-3.  **AI Answer Generator (Google Gemini)**:
-    *   **Answer Endpoint**: Provides direct, concise answers using the state-of-the-art `gemini-2.0-flash` model.
-4.  **AI FAQ Generator (Google Gemini)**:
-    *   **Structured FAQ Generation**: Takes a topic and generates a perfectly structured FAQ pair (`question` & `answer`) using Gemini's Structured JSON outputs (guaranteeing exact schema compliance).
-5.  **FAQ Search**:
-    *   **Regex Keyword Search**: Efficiently searches across questions, answers, and categories using MongoDB regex matching.
-6.  **Security**:
-    *   JWT Token verification middleware.
-    *   Input validation before controller handling.
-    *   Centralized error handling middleware covering Mongoose validations, CastErrors, and duplicate key issues.
-
----
-
-## Directory Structure
-
-```
-src/
-├── config/
-│   └── db.js                 # MongoDB connection configuration
-├── controllers/
-│   ├── aiController.js       # Bridges Gemini API services with requests
-│   ├── authController.js     # Manages registration, login, and profiles
-│   └── faqController.js      # Handles FAQ CRUD and search operations
-├── middleware/
-│   ├── authMiddleware.js     # JWT token verification
-│   ├── errorMiddleware.js    # Formats and returns centralized errors
-│   └── validationMiddleware.js # Sanitizes and validates request bodies
-├── models/
-│   ├── FAQ.js                # FAQ database schema & rules
-│   └── User.js               # User database schema & password hashing
-├── routes/
-│   ├── aiRoutes.js           # Router configuration for AI endpoints
-│   ├── authRoutes.js         # Router configuration for auth endpoints
-│   └── faqRoutes.js          # Router configuration for FAQ endpoints
-├── services/
-│   └── geminiService.js      # Manages Google Gen AI SDK integration
-├── utils/
-│   └── helpers.js            # General backend helper utilities
-├── app.js                    # Express app configuration
-└── server.js                 # Database connection and server listener
+```sh
+$ npm install gaxios
 ```
 
----
+## Example
 
-## Installation & Setup
-
-### 1. Prerequisites
-*   **Node.js**: Version 18+ or 20+
-*   **MongoDB**: Local installation or MongoDB Atlas cluster connection string
-*   **Google Gemini API Key**: Obtainable from [Google AI Studio](https://aistudio.google.com/app/apikey)
-
-### 2. Install Dependencies
-Clone or copy the project files to your directory and run:
-```bash
-npm install
+```js
+import {request} from 'gaxios';
+const res = await request({url: 'https://google.com/'});
 ```
 
-### 3. Configure Environment Variables
-Create a `.env` file in the root directory (or use the provided template):
-```env
-PORT=5000
-MONGO_URI=mongodb://127.0.0.1:27017/ai_faq_assistant
-JWT_SECRET=your_jwt_secret_key_here_must_be_long_and_secure
-GEMINI_API_KEY=your_google_gemini_api_key_here
+## `fetch`-Compatible API Example
+
+We offer a drop-in `fetch`-compatible API as well.
+
+```js
+import {instance} from 'gaxios';
+const res = await instance.fetch('https://google.com/');
 ```
 
-### 4. Run the Application
-*   **Development Mode** (auto-reloads on changes using native Node.js watch flag):
-    ```bash
-    npm run dev
-    ```
-*   **Production Mode**:
-    ```bash
-    npm start
-    ```
+To disable the auto-processing of the request body in `res.data`, set `{responseType: 'stream'}` or `.adapter` on a Gaxios instance's defaults or per-request.
 
----
+## Setting Defaults
 
-## API Reference
+Gaxios supports setting default properties both on the default instance, and on additional instances. This is often useful when making many requests to the same domain with the same base settings. For example:
 
-### 1. Authentication
-*   **Register User** (`POST /api/auth/register`)
-    *   *Payload*: `{ "name": "John Doe", "email": "john@gmail.com", "password": "123456" }`
-*   **Login User** (`POST /api/auth/login`)
-    *   *Payload*: `{ "email": "john@gmail.com", "password": "123456" }`
-    *   *Returns*: User object + JWT `token`.
-*   **Get Profile** (`GET /api/auth/profile`) - *Protected*
-    *   *Header*: `Authorization: Bearer <token>`
+```js
+import {Gaxios} from 'gaxios';
 
-### 2. FAQ Management
-*   **Create FAQ** (`POST /api/faqs`) - *Protected*
-    *   *Payload*: `{ "question": "What is Node?", "answer": "Node is a JS runtime.", "category": "Technology" }`
-*   **Get All FAQs** (`GET /api/faqs`)
-*   **Get FAQ by ID** (`GET /api/faqs/:id`)
-*   **Update FAQ** (`PUT /api/faqs/:id`) - *Protected (Creator only)*
-    *   *Payload*: `{ "question": "Updated Question", "answer": "Updated Answer" }`
-*   **Delete FAQ** (`DELETE /api/faqs/:id`) - *Protected (Creator only)*
-*   **Search FAQs** (`GET /api/faqs/search?q=query_string`)
-    *   *Query Parameters*: `q` (keyword search)
+const gaxios = new Gaxios();
 
-### 3. AI Services (Protected)
-*   **AI Answer Generator** (`POST /api/ai/answer`)
-    *   *Payload*: `{ "question": "What is Artificial Intelligence?" }`
-    *   *Response*: `{ "success": true, "answer": "..." }`
-*   **AI FAQ Generator** (`POST /api/ai/generate-faq`)
-    *   *Payload*: `{ "topic": "MongoDB" }`
-    *   *Response*: `{ "success": true, "question": "...", "answer": "..." }`
-    *   *Note*: The returned question-answer pair can be stored by passing it to the `POST /api/faqs` endpoint.
+gaxios.defaults = {
+  baseURL: 'https://example.com'
+  headers: new Headers({
+    Authorization: 'SOME_TOKEN'
+  })
+}
 
----
+await gaxios.request({url: '/data'});
+```
 
-## Testing with Postman
+Note that setting default values will take precedence
+over other authentication methods, i.e., application default credentials.
 
-An pre-configured Postman Collection is included in the project root:
-*   **File**: `AI_FAQ_Assistant_API.postman_collection.json`
-*   **Import**: Import this file directly into Postman.
-*   **Environment Setup**: It defines two collection variables:
-    *   `baseUrl`: Defaulted to `http://localhost:5000`
-    *   `token`: Left blank initially.
-*   **Automatic JWT Token Saving**: The **User Login** request contains a test script that automatically extracts the JWT token upon a successful response and updates the collection's `token` variable. Subsequent protected requests will automatically read from `{{token}}` in their Authorization tab.
+## `GaxiosResponse`
+
+The `GaxiosResponse` object extends the `fetch` API's [`Response`](https://developer.mozilla.org/en-US/docs/Web/API/Response) object, with the addition of:
+
+- `config`: the configuration used for the request.
+- `data`: the transformed `.body`, such as JSON, text, arrayBuffer, or more.
+
+## Request Options
+
+```ts
+interface GaxiosOptions = {
+  // The url to which the request should be sent.  Required.
+  url: string | URL,
+
+  // The HTTP method to use for the request.  Defaults to `GET`.
+  method: 'GET',
+
+  // The base Url to use for the request.
+  // Resolved as `new URL(url, baseURL)`
+  baseURL: 'https://example.com/v1/' | URL;
+
+  // The HTTP methods to be sent with the request.
+  headers: new Headers(),
+
+  // The data to send in the body of the request. Objects will be serialized as JSON
+  // except for:
+  // - `ArrayBuffer`
+  // - `Blob`
+  // - `Buffer` (Node.js)
+  // - `DataView`
+  // - `File`
+  // - `FormData`
+  // - `ReadableStream`
+  // - `stream.Readable` (Node.js)
+  // - strings
+  // - `TypedArray` (e.g. `Uint8Array`, `BigInt64Array`)
+  // - `URLSearchParams`
+  // - all other objects where:
+  //   - headers.get('Content-Type') === 'application/x-www-form-urlencoded' (as they will be serialized as `URLSearchParams`)
+  //
+  // Here are a few examples that would prevent setting `Content-Type: application/json` by default:
+  // - data: JSON.stringify({some: 'data'}) // a `string`
+  // - data: fs.readFile('./some-data.jpeg') // a `stream.Readable`
+  data: {
+    some: 'data'
+  },
+
+  // The max size of the http response content in bytes allowed.
+  // Defaults to `0`, which is the same as unset.
+  maxContentLength: 2000,
+
+  // The query parameters that will be encoded using `URLSearchParams` and
+  // appended to the url
+  params: {
+    querystring: 'parameters'
+  },
+
+  // The timeout for the HTTP request in milliseconds. No timeout by default.
+  timeout: 60000,
+
+  // Optional method to override making the actual HTTP request. Useful
+  // for writing tests and instrumentation
+  adapter?: async (options, defaultAdapter) => {
+    const res = await defaultAdapter(options);
+    res.data = {
+      ...res.data,
+      extraProperty: 'your extra property',
+    };
+    return res;
+  };
+
+  // The expected return type of the request.  Options are:
+  // 'json' | 'stream' | 'blob' | 'arraybuffer' | 'text' | 'unknown'
+  // Defaults to `unknown`.
+  //
+  // If the `fetchImplementation` is native `fetch`, the
+  // stream is a `ReadableStream`, otherwise `readable.Stream`.
+  //
+  // Note: Setting 'stream' does not consume the `Response#body` - this can
+  // be useful for passthrough requests, where a consumer would like to
+  // transform the `Response#body`, or for using Gaxios as a drop-in `fetch`
+  // replacement.
+  responseType: 'unknown',
+
+  // The node.js http agent to use for the request.
+  agent: someHttpsAgent,
+
+  // Custom function to determine if the response is valid based on the
+  // status code.  Defaults to (>= 200 && < 300)
+  validateStatus: (status: number) => true,
+
+  /**
+   * Implementation of `fetch` to use when making the API call. Will use
+   * `node-fetch` by default.
+   */
+  fetchImplementation?: typeof fetch;
+
+  // Configuration for retrying of requests.
+  retryConfig: {
+    // The number of times to retry the request.  Defaults to 3.
+    retry?: number;
+
+    // The number of retries already attempted.
+    currentRetryAttempt?: number;
+
+    // The HTTP Methods that will be automatically retried.
+    // Defaults to ['GET','PUT','HEAD','OPTIONS','DELETE']
+    httpMethodsToRetry?: string[];
+
+    // The HTTP response status codes that will automatically be retried.
+    // Defaults to: [[100, 199], [408, 408], [429, 429], [500, 599]]
+    statusCodesToRetry?: number[][];
+
+    // Function to invoke when a retry attempt is made.
+    onRetryAttempt?: (err: GaxiosError) => Promise<void> | void;
+
+    // Function to invoke which determines if you should retry
+    shouldRetry?: (err: GaxiosError) => Promise<boolean> | boolean;
+
+    // When there is no response, the number of retries to attempt. Defaults to 2.
+    noResponseRetries?: number;
+
+    // The amount of time to initially delay the retry, in ms.  Defaults to 100ms.
+    retryDelay?: number;
+  },
+
+  // Enables default configuration for retries.
+  retry: boolean,
+
+  // Enables aborting via AbortController
+  signal?: AbortSignal
+
+  /**
+   * A collection of parts to send as a `Content-Type: multipart/related` request.
+   */
+  multipart?: GaxiosMultipartOptions;
+
+  /**
+   * An optional proxy to use for requests.
+   * Available via `process.env.HTTP_PROXY` and `process.env.HTTPS_PROXY` as well - with a preference for the this config option when multiple are available.
+   * The `agent` option overrides this.
+   *
+   * @see {@link GaxiosOptions.noProxy}
+   * @see {@link GaxiosOptions.agent}
+   */
+  proxy?: string | URL;
+
+  /**
+   * A list for excluding traffic for proxies.
+   * Available via `process.env.NO_PROXY` as well as a common-separated list of strings - merged with any local `noProxy` rules.
+   *
+   * - When provided a string, it is matched by
+   *   - Wildcard `*.` and `.` matching are available. (e.g. `.example.com` or `*.example.com`)
+   * - When provided a URL, it is matched by the `.origin` property.
+   *   - For example, requesting `https://example.com` with the following `noProxy`s would result in a no proxy use:
+   *     - new URL('https://example.com')
+   *     - new URL('https://example.com:443')
+   *   - The following would be used with a proxy:
+   *     - new URL('http://example.com:80')
+   *     - new URL('https://example.com:8443')
+   * - When provided a regular expression it is used to match the stringified URL
+   *
+   * @see {@link GaxiosOptions.proxy}
+   */
+  noProxy?: (string | URL | RegExp)[];
+
+  /**
+   * An experimental, customizable error redactor.
+   *
+   * Set `false` to disable.
+   *
+   * @remarks
+   *
+   * This does not replace the requirement for an active Data Loss Prevention (DLP) provider. For DLP suggestions, see:
+   * - https://cloud.google.com/sensitive-data-protection/docs/redacting-sensitive-data#dlp_deidentify_replace_infotype-nodejs
+   * - https://cloud.google.com/sensitive-data-protection/docs/infotypes-reference#credentials_and_secrets
+   *
+   * @experimental
+   */
+  errorRedactor?: typeof defaultErrorRedactor | false;
+}
+```
+
+## License
+
+[Apache-2.0](https://github.com/googleapis/gaxios/blob/main/LICENSE)
